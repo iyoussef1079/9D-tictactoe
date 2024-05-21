@@ -1,8 +1,10 @@
 import json
 
 class Board:
-    def __init__(self) -> None:
-        self.board = [[None for _ in range(3)] for _ in range(3)]
+    def __init__(self, board=None) -> None:
+        if board is not None:
+            assert len(board) == 3 and all(len(row) == 3 for row in board), "Board must be 3x3"
+        self.board = [[None for _ in range(3)] for _ in range(3)] if board is None else board
 
     def to_serializable(self):
         """Prepare the board for serialization."""

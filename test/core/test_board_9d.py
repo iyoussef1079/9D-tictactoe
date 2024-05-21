@@ -10,6 +10,3 @@ class TestBoard9D(unittest.TestCase):
         actual = board_9d.to_serializable()
 
         self.assertEqual(actual, expected, "The initial board state should be all None")
-
-if __name__ == '__main__':
-    unittest.main()
