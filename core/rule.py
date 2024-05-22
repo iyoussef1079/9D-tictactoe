@@ -17,6 +17,6 @@ class StandardUltimateTicTacToeRule(MoveRuleStrategy):
         Implements the standard Ultimate Tic-Tac-Toe rule:
         The next board is determined directly by the cell's position in the current board.
         """
-        if current_board[cell_position[0]][cell_position[1]].is_full():  # Assuming an is_full method exists
+        if current_board.board[cell_position[0]][cell_position[1]].is_full():  # Assuming an is_full method exists
             return None
         return cell_position  # The next board's position is the same as the cell's position in the current board.
