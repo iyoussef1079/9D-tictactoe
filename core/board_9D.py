@@ -1,5 +1,7 @@
 import json
 
+from core.exceptions import CellOccupiedError
+
 class Board:
     def __init__(self, board=None) -> None:
         if board is not None:
@@ -12,7 +14,13 @@ class Board:
 
     def place_piece(self, x, y, piece):
         """Place a piece on the board."""
+        if self.board[x][y] is not None:
+            raise CellOccupiedError()
         self.board[x][y] = piece
+
+    def is_full(self):
+        """Check if the board is full."""
+        return all(cell is not None for row in self.board for cell in row)
 
 class Board_9D:
     def __init__(self) -> None:

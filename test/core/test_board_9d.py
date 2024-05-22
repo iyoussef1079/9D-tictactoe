@@ -1,5 +1,6 @@
 import unittest
 from core.board_9D import Board_9D
+from core.exceptions import CellOccupiedError
 
 class TestBoard9D(unittest.TestCase):
     def test_initial_board_state(self):
@@ -21,3 +22,10 @@ class TestBoard9D(unittest.TestCase):
         actual = board_9d.to_serializable()
 
         self.assertEqual(actual, expected, "Placing a piece on the board should work")
+
+
+    def test_place_piece_occupied(self):
+        board_9d = Board_9D()
+        board_9d.place_piece(0, 0, 0, 0, "X")
+        with self.assertRaises(CellOccupiedError, msg="Should raise CellOccupiedError when trying to place a piece in an occupied cell"):
+            board_9d.place_piece(0, 0, 0, 0, "X")
