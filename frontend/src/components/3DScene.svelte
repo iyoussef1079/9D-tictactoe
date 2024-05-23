@@ -4,6 +4,8 @@
   import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
   let container: HTMLDivElement;
+  let hoveredObject: any = null;
+
 
   // Define points on the sphere
   const points: Array<THREE.Vector3> = [
@@ -27,6 +29,11 @@
 
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
+    let needsUpdate = false;
+    let interactiveObjects: THREE.Mesh[] = [];
+
+    // Interaction materials
+    const hoverMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
 
     // Create materials
     const materials = [
@@ -54,10 +61,13 @@
     const cellGeometry = new THREE.BoxGeometry(0.2, 0.2, 0.02); // Smaller geometry for each cell
     const cellMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
 
+    let boardIndex = 0;
     points.forEach(point => {
       const boardGroup = new THREE.Group(); // Group for the board
       boardGroup.position.copy(point);
       boardGroup.lookAt(new THREE.Vector3());
+
+      boardGroup.name = `Board ${boardIndex + 1}`;
 
       // Outside square
       const squareOutside = new THREE.Mesh(geometry, materials);
@@ -75,20 +85,60 @@
         for (let j = 0; j < 3; j++) {
           const cell = new THREE.Mesh(cellGeometry, cellMaterial);
           cell.position.set(j * 0.25 - 0.25, i * 0.25 - 0.25, -0.06); // Offset cells above the main square
+          cell.name = `Board ${boardIndex + 1} Cell ${i * 3 + j + 1}`;
           boardGroup.add(cell);
+          interactiveObjects.push(cell)
         }
       }
 
       scene.add(boardGroup);
+      boardIndex++;
     });
 
     camera.position.z = 3;
 
     const animate = () => {
       requestAnimationFrame(animate);
+
+      if (needsUpdate) {
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObjects(interactiveObjects);
+        console.log(intersects.map(obj => obj.object.name)); // Log intersected object names
+
+
+        if (intersects.length > 0) {
+          if (hoveredObject !== intersects[0].object) {
+            if (hoveredObject) {
+              hoveredObject.material = cellMaterial;
+            }
+            hoveredObject = intersects[0].object;
+            hoveredObject.material = hoverMaterial;
+          }
+        } else if (hoveredObject) {
+          hoveredObject.material = cellMaterial;
+          hoveredObject = null;
+        }
+
+        needsUpdate = false;  // Reset the flag
+      }
+
       renderer.render(scene, camera);
     };
     animate();
+
+
+    // Event Listeners for interaction
+    function onMouseMove(event: MouseEvent) {
+      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+      needsUpdate = true;
+    }
+
+    function onMouseClick(event: MouseEvent) {
+    }
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('click', onMouseClick);
 
     window.addEventListener('resize', () => {
       camera.aspect = container.clientWidth / container.clientHeight;
