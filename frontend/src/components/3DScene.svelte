@@ -6,8 +6,8 @@
   let container: HTMLDivElement;
   let hoveredObject: any = null;
 
+  let interactiveObjects: THREE.Mesh[] = [];
 
-  // Define points on the sphere
   const points: Array<THREE.Vector3> = [
     new THREE.Vector3(-0.523903403218816, 0.0593068624413402, -0.8497104919695334),
     new THREE.Vector3(0.5134369135699347, -0.6085150750705706, -0.605055319120192),
@@ -20,22 +20,98 @@
     new THREE.Vector3(-0.523903403218816, -0.0593068624413402, 0.8497104919695334)
   ];
 
+  // Cell materials
+  const hoverMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+  const cellMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
+
+  // Declare the gameState variable
+  let gameState = {
+    boards: Array(3).fill(null).map(() =>
+      Array(3).fill(null).map(() =>
+        Array(3).fill(null).map(() => Array(3).fill(null))
+      )
+    )
+  };
+
+  // Function to update the scene from the game state
+  function updateSceneFromState() {
+    gameState.boards.forEach((board, boardRow) => {
+      board.forEach((col, boardCol) => {
+        col.forEach((cellRow, row) => {
+          cellRow.forEach((cell, col) => {
+            updateCell(boardRow, boardCol, row, col, cell);
+          });
+        });
+      });
+    });
+  }
+
+  // Function to update a specific cell
+  function updateCell(boardRow: number, boardCol: number, cellRow: number, cellCol: number, value: any) {
+    const cellName = `Cell_${boardRow}_${boardCol}_${cellRow}_${cellCol}`;
+    const cell = interactiveObjects.find(obj => obj.name === cellName);
+    if (cell) {
+      // Update cell appearance based on the value
+      if (value === 'X') {
+        cell.material = new THREE.MeshBasicMaterial({ color: 0x0000ff });
+      } else if (value === 'O') {
+        cell.material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+      } else {
+        cell.material = cellMaterial;
+      }
+    }
+  }
+
+  let socket: WebSocket;
+
+  function connectWebSocket() {
+    socket = new WebSocket('ws://your_server/ws/game');
+
+    socket.onopen = () => {
+      console.log('WebSocket connection established');
+    };
+
+    socket.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data.type === 'game_state') {
+        gameState = data.state;
+        updateSceneFromState();
+      } else if (data.type === 'error') {
+        handleError(data.message);
+      }
+    };
+
+    socket.onclose = () => {
+      console.log('WebSocket connection closed');
+    };
+
+    socket.onerror = (error) => {
+      console.error('WebSocket error:', error);
+    };
+
+    function handleError(message: string) {
+      alert(message);
+    }
+  }
+
+  function sendMove(boardRow: number, boardCol: number, cellRow: number, cellCol: number) {
+    const move = { type: 'make_move', boardRow, boardCol, cellRow, cellCol };
+    socket.send(JSON.stringify(move));
+  }
+
+
   onMount(() => {
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer();
+
     renderer.setSize(container.clientWidth, container.clientHeight);
     container.appendChild(renderer.domElement);
 
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
     let needsUpdate = false;
-    let interactiveObjects: THREE.Mesh[] = [];
 
-    // Interaction materials
-    const hoverMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-
-    // Create materials
     const materials = [
       new THREE.MeshMatcapMaterial({ color: 0xffffff }), // right side
       new THREE.MeshMatcapMaterial({ color: 0xffffff }), // left side
@@ -45,49 +121,43 @@
       new THREE.MeshMatcapMaterial({ color: 0xff0000 })  // back side
     ];
 
-    // Set up camera position
     camera.position.z = 3;
-
-    // Controls to enable camera rotation
     const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true; // Optional: this provides a smoother rotation feeling
+    controls.enableDamping = true;
     controls.dampingFactor = 0.1;
-    controls.rotateSpeed = 0.07;
+    controls.rotateSpeed = 0.15;
 
-    // Define geometry of the square (board)
     const geometry = new THREE.BoxGeometry(0.7, 0.7, 0.05);
-
-    // Define geometry of each cell
-    const cellGeometry = new THREE.BoxGeometry(0.2, 0.2, 0.02); // Smaller geometry for each cell
-    const cellMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const cellGeometry = new THREE.BoxGeometry(0.20, 0.20, 0.02);
 
     let boardIndex = 0;
     points.forEach(point => {
-      const boardGroup = new THREE.Group(); // Group for the board
+      const boardGroup = new THREE.Group();
       boardGroup.position.copy(point);
       boardGroup.lookAt(new THREE.Vector3());
 
-      boardGroup.name = `Board ${boardIndex + 1}`;
+      const boardRow = Math.floor(boardIndex / 3);
+      const boardCol = boardIndex % 3;
+      boardGroup.name = `Board_${boardRow}_${boardCol}`;
 
-      // Outside square
       const squareOutside = new THREE.Mesh(geometry, materials);
       boardGroup.add(squareOutside);
 
-      // Add grid helper to each square
       const gridHelper = new THREE.GridHelper(0.7, 3, 0xffffff, 0xffffff);
       gridHelper.position.set(0, 0, -0.03);
-      gridHelper.geometry.rotateX(Math.PI / 2); // Rotate to match the square's orientation
-      gridHelper.lookAt(new THREE.Vector3()); // Align grid with square
+      gridHelper.geometry.rotateX(Math.PI / 2);
+      gridHelper.lookAt(new THREE.Vector3());
       boardGroup.add(gridHelper);
 
-      // Create 9 cells per board
       for (let i = 0; i < 3; i++) {
         for (let j = 0; j < 3; j++) {
           const cell = new THREE.Mesh(cellGeometry, cellMaterial);
-          cell.position.set(j * 0.25 - 0.25, i * 0.25 - 0.25, -0.06); // Offset cells above the main square
-          cell.name = `Board ${boardIndex + 1} Cell ${i * 3 + j + 1}`;
+          const xOffset = (1 - j) * 0.25;
+          const yOffset = (1 - i) * 0.25; // Adjust to make (0,0) at top-left
+          cell.position.set(xOffset, yOffset, -0.06);
+          cell.name = `Cell_${boardRow}_${boardCol}_${i}_${j}`;
           boardGroup.add(cell);
-          interactiveObjects.push(cell)
+          interactiveObjects.push(cell);
         }
       }
 
@@ -95,16 +165,12 @@
       boardIndex++;
     });
 
-    camera.position.z = 3;
-
     const animate = () => {
       requestAnimationFrame(animate);
 
       if (needsUpdate) {
         raycaster.setFromCamera(mouse, camera);
         const intersects = raycaster.intersectObjects(interactiveObjects);
-        console.log(intersects.map(obj => obj.object.name)); // Log intersected object names
-
 
         if (intersects.length > 0) {
           if (hoveredObject !== intersects[0].object) {
@@ -119,22 +185,34 @@
           hoveredObject = null;
         }
 
-        needsUpdate = false;  // Reset the flag
+        needsUpdate = false;
       }
 
       renderer.render(scene, camera);
     };
     animate();
 
-
-    // Event Listeners for interaction
     function onMouseMove(event: MouseEvent) {
-      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+      const rect = container.getBoundingClientRect();
+      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
       needsUpdate = true;
     }
 
     function onMouseClick(event: MouseEvent) {
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(interactiveObjects);
+
+      if (intersects.length > 0) {
+        const clickedObject = intersects[0].object;
+        if (intersects.length > 0) {
+          const clickedObject = intersects[0].object;
+          const indices = clickedObject.name.split('_').slice(1).map(Number);
+          const [boardRow, boardCol, cellRow, cellCol] = indices;
+
+          alert(`Board: (${boardRow}, ${boardCol}), Cell: (${cellRow}, ${cellCol})`);
+        }
+      }
     }
 
     window.addEventListener('mousemove', onMouseMove);
@@ -154,7 +232,6 @@
 </script>
 
 <div bind:this={container} class="container"></div>
-
 
 <style>
   .container {
