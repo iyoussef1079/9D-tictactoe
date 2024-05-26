@@ -10,7 +10,8 @@ class Player:
 
 
 class GameController:
-    def __init__(self, board_9d_instance: Board_9D, game_checker_9d_instance: GameChecker9D, rule: MoveRuleStrategy):
+    def __init__(self, game_id, board_9d_instance: Board_9D, game_checker_9d_instance: GameChecker9D, rule: MoveRuleStrategy):
+        self.game_id = game_id
         self.board = board_9d_instance
         self.game_checker = game_checker_9d_instance
         self.players = {
@@ -29,6 +30,7 @@ class GameController:
         """Place a piece on the board and switch turns."""
         if self.next_board and board_position != self.next_board:
             raise MoveRuleException()
+        print(f"Player {self.current_player.name} ({self.current_player.symbol}) plays at {board_position} {cell_position}")
         self.board.place_piece(board_position, cell_position, self.current_player.symbol)
         self.next_board = self.rule.next_board(board_position, cell_position, self.board)
         self.switch_player()
@@ -54,3 +56,8 @@ class GameController:
                 print(str(e))
                 continue
 
+    def get_state(self):
+        return {
+            'game_id': self.game_id,
+            'boards': self.board.to_serializable(),
+        }

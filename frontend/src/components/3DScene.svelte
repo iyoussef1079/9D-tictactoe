@@ -2,11 +2,14 @@
   import { onMount } from 'svelte';
   import * as THREE from 'three';
   import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+  import { sendMove, type IGameState } from '../api/game_api';
+
+  export let gameState: IGameState;
 
   let container: HTMLDivElement;
   let hoveredObject: any = null;
-
   let interactiveObjects: THREE.Mesh[] = [];
+  const cellMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
 
   const points: Array<THREE.Vector3> = [
     new THREE.Vector3(-0.523903403218816, 0.0593068624413402, -0.8497104919695334),
@@ -20,38 +23,16 @@
     new THREE.Vector3(-0.523903403218816, -0.0593068624413402, 0.8497104919695334)
   ];
 
-  // Cell materials
-  const hoverMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-  const cellMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
-
-  // Declare the gameState variable
-  let gameState = {
-    boards: Array(3).fill(null).map(() =>
-      Array(3).fill(null).map(() =>
-        Array(3).fill(null).map(() => Array(3).fill(null))
-      )
-    )
-  };
-
-  // Function to update the scene from the game state
-  function updateSceneFromState() {
-    gameState.boards.forEach((board, boardRow) => {
-      board.forEach((col, boardCol) => {
-        col.forEach((cellRow, row) => {
-          cellRow.forEach((cell, col) => {
-            updateCell(boardRow, boardCol, row, col, cell);
-          });
-        });
-      });
-    });
-  }
-
-  // Function to update a specific cell
-  function updateCell(boardRow: number, boardCol: number, cellRow: number, cellCol: number, value: any) {
+  function updateCell(
+    boardRow: number,
+    boardCol: number,
+    cellRow: number,
+    cellCol: number,
+    value: string | null
+  ) {
     const cellName = `Cell_${boardRow}_${boardCol}_${cellRow}_${cellCol}`;
     const cell = interactiveObjects.find(obj => obj.name === cellName);
     if (cell) {
-      // Update cell appearance based on the value
       if (value === 'X') {
         cell.material = new THREE.MeshBasicMaterial({ color: 0x0000ff });
       } else if (value === 'O') {
@@ -62,43 +43,18 @@
     }
   }
 
-  let socket: WebSocket;
-
-  function connectWebSocket() {
-    socket = new WebSocket('ws://your_server/ws/game');
-
-    socket.onopen = () => {
-      console.log('WebSocket connection established');
-    };
-
-    socket.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data.type === 'game_state') {
-        gameState = data.state;
-        updateSceneFromState();
-      } else if (data.type === 'error') {
-        handleError(data.message);
-      }
-    };
-
-    socket.onclose = () => {
-      console.log('WebSocket connection closed');
-    };
-
-    socket.onerror = (error) => {
-      console.error('WebSocket error:', error);
-    };
-
-    function handleError(message: string) {
-      alert(message);
-    }
+  export function updateScene(newState: IGameState) {
+    alert('Updating 3D scene with new state: ' + JSON.stringify(newState));
+    newState.boards.forEach((boardRow, boardRowIndex) => {
+      boardRow.forEach((board, boardColIndex) => {
+        board.forEach((cellRow, cellRowIndex) => {
+          cellRow.forEach((cell, cellColIndex) => {
+            updateCell(boardRowIndex, boardColIndex, cellRowIndex, cellColIndex, cell);
+          });
+        });
+      });
+    });
   }
-
-  function sendMove(boardRow: number, boardCol: number, cellRow: number, cellCol: number) {
-    const move = { type: 'make_move', boardRow, boardCol, cellRow, cellCol };
-    socket.send(JSON.stringify(move));
-  }
-
 
   onMount(() => {
     const scene = new THREE.Scene();
@@ -111,6 +67,8 @@
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
     let needsUpdate = false;
+
+    const hoverMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
 
     const materials = [
       new THREE.MeshMatcapMaterial({ color: 0xffffff }), // right side
@@ -128,7 +86,7 @@
     controls.rotateSpeed = 0.15;
 
     const geometry = new THREE.BoxGeometry(0.7, 0.7, 0.05);
-    const cellGeometry = new THREE.BoxGeometry(0.20, 0.20, 0.02);
+    const cellGeometry = new THREE.BoxGeometry(0.2, 0.2, 0.02);
 
     let boardIndex = 0;
     points.forEach(point => {
@@ -205,13 +163,10 @@
 
       if (intersects.length > 0) {
         const clickedObject = intersects[0].object;
-        if (intersects.length > 0) {
-          const clickedObject = intersects[0].object;
-          const indices = clickedObject.name.split('_').slice(1).map(Number);
-          const [boardRow, boardCol, cellRow, cellCol] = indices;
+        const indices = clickedObject.name.split('_').slice(1).map(Number);
+        const [boardRow, boardCol, cellRow, cellCol] = indices;
 
-          alert(`Board: (${boardRow}, ${boardCol}), Cell: (${cellRow}, ${cellCol})`);
-        }
+        sendMove(boardRow, boardCol, cellRow, cellCol);
       }
     }
 
