@@ -1,5 +1,3 @@
-import json
-
 from core.exceptions import CellOccupiedError
 
 class Board:
@@ -10,13 +8,14 @@ class Board:
 
     def to_serializable(self):
         """Prepare the board for serialization."""
-        return self.board
+        return [[cell for cell in row] for row in self.board]
 
     def place_piece(self, cell_position, piece):
         """Place a piece on the board."""
-        if self.board[cell_position[0]][cell_position[0]] is not None:
+        row, col = cell_position
+        if self.board[row][col] is not None:
             raise CellOccupiedError()
-        self.board[cell_position[0]][cell_position[0]] = piece
+        self.board[row][col] = piece
 
     def is_full(self):
         """Check if the board is full."""
@@ -32,8 +31,9 @@ class Board_9D:
 
     def place_piece(self, board_position, cell_position, piece):
         """Place a piece on the board.
-        x, y: The 3x3 board coordinates
-        z, w: The piece coordinates within the 3x3 board
+        board_position: The 3x3 board coordinates
+        cell_position: The piece coordinates within the 3x3 board
         piece: The piece to place
         """
-        self.board[board_position[0]][board_position[1]].place_piece(cell_position, piece)
+        board_row, board_col = board_position
+        self.board[board_row][board_col].place_piece(cell_position, piece)

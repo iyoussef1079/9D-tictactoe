@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 import json
+from typing import List, Dict, Any
 
 # Assuming GameController, GameChecker9D, Board_9D are defined appropriately
 from core.game_controller import GameController
@@ -22,13 +23,13 @@ app.add_middleware(
 )
 
 # Game storage - simple dictionary to hold game instances by game ID
-games = {}
-clients = {}
+games: Dict[str, GameController] = {}
+clients: Dict[str, List[WebSocket]] = {}
 
 class Move(BaseModel):
     game_id: str
-    board_position: tuple
-    cell_position: tuple
+    board_position: List[int]
+    cell_position: List[int]
 
 @app.get("/start_game/")
 async def start_game():
@@ -38,7 +39,7 @@ async def start_game():
     rule = StandardUltimateTicTacToeRule()
     game_controller = GameController(game_id, board, game_checker, rule)
     games[game_id] = game_controller
-    return {"message": "Game started", "game_id": game_id, "state": game_controller.get_state()}
+    return {"type": "game_state", "state": game_controller.get_state()}
 
 @app.get("/get_board/{game_id}")
 async def get_board(game_id: str):
@@ -48,24 +49,31 @@ async def get_board(game_id: str):
 
     return game.board.to_serializable()
 
-@app.websocket("/ws/game")
-async def websocket_endpoint(websocket: WebSocket):
+@app.post("/make_move/")
+async def make_move(move: Move):
+    game: GameController = games.get(move.game_id)
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+
+    try:
+        game.play_move(move.board_position, move.cell_position)
+        state = game.get_state()
+        return state
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.websocket("/ws/{game_id}")
+async def websocket_endpoint(websocket: WebSocket, game_id: str):
     await websocket.accept()
-    game_id = None
+    if game_id not in clients:
+        clients[game_id] = []
+    clients[game_id].append(websocket)
+
     try:
         while True:
             data = await websocket.receive_text()
             message = json.loads(data)
-            if message['type'] == 'start_game':
-                game_id = str(len(games) + 1)  # simple unique ID generation
-                board = Board_9D()
-                game_checker = GameChecker9D()
-                rule = StandardUltimateTicTacToeRule()
-                game_controller = GameController(game_id, board, game_checker, rule)
-                games[game_id] = game_controller
-                clients[game_id] = websocket
-                await websocket.send_text(json.dumps({"type": "game_started", "game_id": game_id, "state": game_controller.get_state()}))
-            elif message['type'] == 'make_move':
+            if message['type'] == 'make_move':
                 move = Move(**message['move'])
                 game: GameController = games.get(move.game_id)
                 if not game:
@@ -73,11 +81,16 @@ async def websocket_endpoint(websocket: WebSocket):
                     continue
                 try:
                     game_over = game.play_move(move.board_position, move.cell_position)
-                    await websocket.send_text(json.dumps({"type": "game_state", "game_id": move.game_id, "state": game.board.to_serializable(), "game_over": game_over}))
+                    state = game.get_state()
+                    state["game_over"] = game_over
+                    response = json.dumps({"type": "game_state", "state": state})
+                    for client in clients[move.game_id]:
+                        await client.send_text(response)
                 except Exception as e:
                     await websocket.send_text(json.dumps({"type": "error", "message": str(e)}))
     except WebSocketDisconnect:
-        if game_id and game_id in clients:
+        clients[game_id].remove(websocket)
+        if not clients[game_id]:
             del clients[game_id]
         print(f"Client {websocket.client} disconnected")
 

@@ -1,3 +1,7 @@
+from typing import Any, List
+
+from pydantic import BaseModel
+
 from core.board_9D import Board_9D
 from core.game_checker_9d import GameChecker9D
 from core.rule import StandardUltimateTicTacToeRule, MoveRuleStrategy
@@ -8,9 +12,16 @@ class Player:
         self.name = name
         self.symbol = symbol  # 'X' or 'O'
 
+class GameState(BaseModel):
+    game_id: str
+    boards: Any
+    current_player: Any
+    next_board: Any = None
+    game_over: Any = False
+
 
 class GameController:
-    def __init__(self, game_id, board_9d_instance: Board_9D, game_checker_9d_instance: GameChecker9D, rule: MoveRuleStrategy):
+    def __init__(self, game_id: str, board_9d_instance: Board_9D, game_checker_9d_instance: GameChecker9D, rule: MoveRuleStrategy):
         self.game_id = game_id
         self.board = board_9d_instance
         self.game_checker = game_checker_9d_instance
@@ -40,24 +51,11 @@ class GameController:
     def check_game_over(self):
         return self.game_checker.check_winner_9d(self.board)
 
-    def start_game(self):
-        """Start the game loop."""
-        print("Starting 9D Tic-Tac-Toe game...")
-        game_over = False
-        while not game_over:
-            # Print board state here if needed
-            try:
-                row = int(input("Enter row (0-2): "))
-                col = int(input("Enter column (0-2): "))
-                subrow = int(input("Enter sub-row (0-2): "))
-                subcol = int(input("Enter sub-column (0-2): "))
-                game_over = self.play_move((row, col), (subrow, subcol))
-            except Exception as e:
-                print(str(e))
-                continue
-
-    def get_state(self):
-        return {
-            'game_id': self.game_id,
-            'boards': self.board.to_serializable(),
-        }
+    def get_state(self) -> GameState:
+        return GameState(
+            game_id=self.game_id,
+            boards=self.board.to_serializable(),
+            current_player=self.current_player.symbol,
+            next_board=self.next_board,
+            game_over=self.check_game_over()
+        )

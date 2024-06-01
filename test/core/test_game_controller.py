@@ -11,7 +11,8 @@ class TestGameController(unittest.TestCase):
         self.board_9d = MagicMock(spec=Board_9D)
         self.game_checker = MagicMock(spec=GameChecker9D)
         self.rule = MagicMock(spec=MoveRuleStrategy)
-        self.game_controller = GameController(self.board_9d, self.game_checker, self.rule)
+        self.game_id = 1
+        self.game_controller = GameController(self.game_id, self.board_9d, self.game_checker, self.rule)
 
     def test_switch_player(self):
         # Initially, player X starts
