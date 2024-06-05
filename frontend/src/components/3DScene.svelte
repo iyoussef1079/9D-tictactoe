@@ -7,28 +7,33 @@
   import { get } from 'svelte/store';
   import { Font, FontLoader } from 'three/addons/loaders/FontLoader.js';
   import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
+  import * as TWEEN from '@tweenjs/tween.js';
 
   export let blur = false;
 
   let container: HTMLDivElement;
   let scene: THREE.Scene;
   let camera: THREE.PerspectiveCamera;
+  let controls: OrbitControls;
   let renderer: THREE.WebGLRenderer;
   let hoveredObject: any = null;
   let interactiveObjects: THREE.Mesh[] = [];
 
   // Define variables for colors, materials, and sizes
   const boardColors = {
-    right: 0xffffff,
-    left: 0xffffff,
-    top: 0xffffff,
-    bottom: 0xffffff,
-    front: 0xff00ff,
-    back: 0xff0000
+    right: 0xf0f0f0,
+    left: 0xf0f0f0,
+    top: 0xf0f0f0,
+    bottom: 0xf0f0f0,
+    front: 0x333333,
+    back: 0x333333
   };
 
-  const cellColor = 0xffffff;
-  const hoverColor = 0xff0000;
+  const cellColor = 0x87cefa; // Light Blue
+  const hoverColor = 0xffa500; // Orange
+  const xColor = 0x1e90ff; // Dodger Blue
+  const oColor = 0xff4500; // Orange Red
+  const highlightColor = 0xffff00; // Yellow color for highlight
 
   const cellSize = { width: 0.2, height: 0.2, depth: 0.02 };
   const boardSize = { width: 0.7, height: 0.7, depth: 0.05 };
@@ -37,6 +42,7 @@
 
   const cellMaterial = new THREE.MeshBasicMaterial({ color: cellColor });
   const hoverMaterial = new THREE.MeshBasicMaterial({ color: hoverColor });
+  const highlightMaterial = new THREE.MeshBasicMaterial({ color: highlightColor });
 
   // Create materials for each side of the board
   const boardMaterials = [
@@ -47,12 +53,6 @@
     new THREE.MeshBasicMaterial({ color: boardColors.front }),  // Front side
     new THREE.MeshBasicMaterial({ color: boardColors.back })    // Back side
   ];
-
-  const xColor = 0x0000ff;
-  const oColor = 0xff0000;
-
-  const highlightColor = 0xffff00; // Yellow color for highlight
-  const highlightMaterial = new THREE.MeshBasicMaterial({ color: highlightColor });
 
   const points: Array<THREE.Vector3> = [
     new THREE.Vector3(-0.523903403218816, 0.0593068624413402, -0.8497104919695334),
@@ -81,6 +81,15 @@
     });
   }
 
+  function centerGeometry(geometry: THREE.BufferGeometry) {
+    geometry.computeBoundingBox();
+    const boundingBox = geometry.boundingBox;
+    if (!boundingBox) return;
+    const centerX = (boundingBox.max.x - boundingBox.min.x) / 2;
+    const centerY = (boundingBox.max.y - boundingBox.min.y) / 2;
+    geometry.translate(-centerX, -centerY, 0);
+  }
+
   function updateCell(
     boardRow: number, boardCol: number,
     cellRow: number, cellCol: number,
@@ -90,24 +99,21 @@
     const cell = interactiveObjects.find(obj => obj.name === cellName);
 
     if (cell) {
-      // Remove existing text if any
-      if (cell.userData.textMesh) {
-        scene.remove(cell.userData.textMesh);
-        cell.userData.textMesh.geometry.dispose();
-        cell.userData.textMesh.material.dispose();
-        delete cell.userData.textMesh;
-      }
-
+      // Replace the cell's geometry with text geometry if X or O
       if (value === 'X' || value === 'O') {
         const textGeometry = createTextGeometry(value);
+        centerGeometry(textGeometry);
         cell.geometry.dispose(); // Dispose of the old geometry
         cell.geometry = textGeometry; // Replace the geometry with the new text geometry
-        cell.geometry.translate(-0.075, -0.12, 0);
         (cell.material as THREE.MeshBasicMaterial).color.set(value === 'X' ? xColor : oColor); // Update the color
+        cell.userData.originalColor = value === 'X' ? xColor : oColor; // Save original color
       } else {
-        delete cell.userData.textMesh;
-        cell.visible = true;
-        cell.material = cellMaterial;
+        // Restore the original geometry and color if value is null
+        const cellGeometry = new THREE.BoxGeometry(cellSize.width, cellSize.height, cellSize.depth);
+        cell.geometry.dispose(); // Dispose of the old geometry
+        cell.geometry = cellGeometry; // Replace the geometry with the new box geometry
+        (cell.material as THREE.MeshBasicMaterial).color.set(cellColor); // Update the color
+        cell.userData.originalColor = cellColor; // Save original color
       }
     }
   }
@@ -125,6 +131,17 @@
     if (board) {
       board.material = new THREE.MeshBasicMaterial({ color: highlightColor });
       console.log(board.name);
+
+      // Rotate camera to focus on the highlighted board
+      // const targetPosition = board.position.clone().add(new THREE.Vector3(0, 0, 1));
+      // new TWEEN.Tween(camera.position)
+      //   .to({ x: targetPosition.x, y: targetPosition.y, z: targetPosition.z }, 1000)
+      //   .easing(TWEEN.Easing.Quadratic.Out)
+      //   .start();
+      // new TWEEN.Tween(controls.target)
+      //   .to({ x: board.position.x, y: board.position.y, z: board.position.z }, 1000)
+      //   .easing(TWEEN.Easing.Quadratic.Out)
+      //   .start();
     }
   }
 
@@ -152,7 +169,8 @@
   onMount(() => {
     scene = new THREE.Scene();
     camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
-    renderer = new THREE.WebGLRenderer();
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    controls = new OrbitControls(camera, renderer.domElement);
 
     renderer.setSize(container.clientWidth, container.clientHeight);
     container.appendChild(renderer.domElement);
@@ -162,7 +180,7 @@
     let needsUpdate = false;
 
     camera.position.z = 3;
-    const controls = new OrbitControls(camera, renderer.domElement);
+    
     controls.enableDamping = true;
     controls.dampingFactor = 0.1;
     controls.rotateSpeed = 0.15;
@@ -192,11 +210,12 @@
 
       for (let i = 0; i < 3; i++) {
         for (let j = 0; j < 3; j++) {
-          const cell = new THREE.Mesh(cellGeometry, cellMaterial);
+          const cell = new THREE.Mesh(cellGeometry, cellMaterial.clone());
           const xOffset = (1 - j) * 0.25;
           const yOffset = (1 - i) * 0.25;
           cell.position.set(xOffset, yOffset, -0.06);
           cell.name = `Cell_${boardRow}_${boardCol}_${i}_${j}`;
+          cell.userData.originalColor = cellColor; // Save original color
           boardGroup.add(cell);
           interactiveObjects.push(cell);
         }
@@ -208,6 +227,8 @@
 
     const animate = () => {
       requestAnimationFrame(animate);
+      controls.update(); // only required if damping is enabled
+      TWEEN.update();
 
       if (needsUpdate) {
         raycaster.setFromCamera(mouse, camera);
@@ -216,13 +237,13 @@
         if (intersects.length > 0) {
           if (hoveredObject !== intersects[0].object) {
             if (hoveredObject) {
-              hoveredObject.material = cellMaterial;
+              hoveredObject.material = new THREE.MeshBasicMaterial({ color: hoveredObject.userData.originalColor });
             }
             hoveredObject = intersects[0].object;
-            hoveredObject.material = hoverMaterial;
+            hoveredObject.material = hoverMaterial.clone();
           }
         } else if (hoveredObject) {
-          hoveredObject.material = cellMaterial;
+          hoveredObject.material = new THREE.MeshBasicMaterial({ color: hoveredObject.userData.originalColor });
           hoveredObject = null;
         }
 
@@ -290,7 +311,7 @@
     height: 80vh;
   }
 
- .blur {
+  .blur {
     filter: blur(10px);
   }
 </style>

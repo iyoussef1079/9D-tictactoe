@@ -32,6 +32,7 @@
   "type": "module",
   "dependencies": {
     "@floating-ui/dom": "1.6.5",
+    "@tweenjs/tween.js": "^23.1.2",
     "highlight.js": "11.9.0",
     "three": "^0.164.1"
   }
