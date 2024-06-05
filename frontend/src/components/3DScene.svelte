@@ -8,6 +8,7 @@
   import { Font, FontLoader } from 'three/addons/loaders/FontLoader.js';
   import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
   import * as TWEEN from '@tweenjs/tween.js';
+    import type { List } from 'postcss/lib/list';
 
   export let blur = false;
 
@@ -118,12 +119,20 @@
     }
   }
 
-  function highlightNextBoard(boardRow: number, boardCol: number) {
+  function highlightNextBoard(next_board: Array<number> | null | undefined) {
+
     scene.traverse((object) => {
       if (object instanceof THREE.Mesh && object.name.startsWith('Board_')) {
         object.material = boardMaterials;
       }
     });
+
+    if (!next_board) {
+      return;
+    }
+
+    const boardRow: number = next_board[0];
+    const boardCol: number = next_board[1];
 
     const boardName = `Board_${boardRow}_${boardCol}`;
     const board = scene.getObjectByName(boardName) as THREE.Mesh;
@@ -161,9 +170,7 @@
       });
     });
 
-    if (newState.next_board) {
-      highlightNextBoard(newState.next_board[0], newState.next_board[1]);
-    }
+    highlightNextBoard(newState.next_board);
   }
 
   onMount(() => {
