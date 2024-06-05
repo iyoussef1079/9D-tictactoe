@@ -1,24 +1,20 @@
-import { isWebSocketConnected } from './store';
+import { get, writable } from 'svelte/store';
+import { isWebSocketConnected, gameState } from './store';
 
 export interface IGameState {
-    game_id: string;
-    boards: Array<Array<Array<Array<string | null>>>>
+  gameStarted: boolean;
+  game_id: string;
+  boards: Array<Array<Array<Array<string | null>>>>;
+  current_player?: string;
+  next_board?: Array<number>;
+  game_over?: boolean;
 }
-
-export let gameState: IGameState = {
-  game_id: '',
-  boards: Array(3).fill(null).map(() =>
-    Array(3).fill(null).map(() =>
-      Array(3).fill(null).map(() => Array(3).fill(null))
-    )
-  )
-};
 
 let socket: WebSocket | null = null;
 let isSocketConnected = false;
 
-export function connectWebSocket(updateGameStateCallback: (newState: any) => void) {
-  socket = new WebSocket('ws://127.0.0.1:8000/ws/game');
+export function connectWebSocket(gameId: string, updateGameStateCallback: (newState: any) => void) {
+  socket = new WebSocket(`ws://127.0.0.1:8000/ws/${gameId}`);
 
   socket.onopen = () => {
     console.log('WebSocket connection established');
@@ -28,9 +24,9 @@ export function connectWebSocket(updateGameStateCallback: (newState: any) => voi
 
   socket.onmessage = (event) => {
     const data = JSON.parse(event.data);
-    if (data.type === 'game_state' || data.type === 'game_started') {
-      gameState = { game_id: data.game_id, ...data.state };
-      updateGameStateCallback(gameState);
+    if (data.type === 'game_state') {
+      gameState.update(state => ({ ...state, ...data.state, game_id: gameId }));
+      updateGameStateCallback(get(gameState));
     } else if (data.type === 'error') {
       handleError(data.message);
     }
@@ -57,38 +53,40 @@ function waitForSocketConnection(callback: () => void) {
   }, 100);
 }
 
-export function startGame(updateGameStateCallback: (newState: any) => void): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (socket) {
-      const message = { type: 'start_game' };
-      waitForSocketConnection(() => {
-        console.log('Sending start game message', message);
-        socket!.send(JSON.stringify(message));
-        socket!.onmessage = (event) => {
-          const data = JSON.parse(event.data);
-          console.log('Received message:', data);
-          if (data.type === 'game_started') {
-            gameState = { game_id: data.game_id, ...data.state };
-            updateGameStateCallback(gameState);
-            resolve();
-          } else if (data.type === 'error') {
-            handleError(data.message);
-            reject(data.message);
-          }
-        };
-      });
-    } else {
-      reject('WebSocket is not connected');
-    }
-  });
+export async function startGame(updateGameStateCallback: (newState: any) => void): Promise<void> {
+  try {
+    const response = await fetch('http://127.0.0.1:8000/start_game/');
+    const data = await response.json();
+    gameState.update(state => ({
+      ...state,
+      game_id: data.state.game_id,
+      boards: data.state.boards,
+      gameStarted: true
+    }));
+    updateGameStateCallback(get(gameState));
+    connectWebSocket(data.state.game_id, updateGameStateCallback);
+  } catch (error: any) {
+    handleError(error.message);
+  }
+}
+
+export async function getBoard(gameId: string, updateGameStateCallback: (newState: any) => void): Promise<void> {
+  try {
+    const response = await fetch(`http://127.0.0.1:8000/get_board/${gameId}`);
+    const data = await response.json();
+    gameState.update(state => ({ ...state, boards: data, game_id: gameId }));
+    updateGameStateCallback(get(gameState));
+  } catch (error: any) {
+    handleError(error.message);
+  }
 }
 
 export function sendMove(boardRow: number, boardCol: number, cellRow: number, cellCol: number) {
-  if (socket && gameState.game_id) {
+  if (socket && get(gameState).game_id) {
     const move = {
       type: 'make_move',
       move: {
-        game_id: gameState.game_id,
+        game_id: get(gameState).game_id,
         board_position: [boardRow, boardCol],
         cell_position: [cellRow, cellCol]
       }

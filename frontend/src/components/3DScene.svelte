@@ -3,13 +3,56 @@
   import * as THREE from 'three';
   import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
   import { sendMove, type IGameState } from '../api/game_api';
+  import { gameState } from '../api/store';
+  import { get } from 'svelte/store';
+  import { Font, FontLoader } from 'three/addons/loaders/FontLoader.js';
+  import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
 
-  export let gameState: IGameState;
+  export let blur = false;
 
   let container: HTMLDivElement;
+  let scene: THREE.Scene;
+  let camera: THREE.PerspectiveCamera;
+  let renderer: THREE.WebGLRenderer;
   let hoveredObject: any = null;
   let interactiveObjects: THREE.Mesh[] = [];
-  const cellMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
+
+  // Define variables for colors, materials, and sizes
+  const boardColors = {
+    right: 0xffffff,
+    left: 0xffffff,
+    top: 0xffffff,
+    bottom: 0xffffff,
+    front: 0xff00ff,
+    back: 0xff0000
+  };
+
+  const cellColor = 0xffffff;
+  const hoverColor = 0xff0000;
+
+  const cellSize = { width: 0.2, height: 0.2, depth: 0.02 };
+  const boardSize = { width: 0.7, height: 0.7, depth: 0.05 };
+  const textSize = 0.2;
+  const textHeight = 0.05;
+
+  const cellMaterial = new THREE.MeshBasicMaterial({ color: cellColor });
+  const hoverMaterial = new THREE.MeshBasicMaterial({ color: hoverColor });
+
+  // Create materials for each side of the board
+  const boardMaterials = [
+    new THREE.MeshBasicMaterial({ color: boardColors.right }),  // Right side
+    new THREE.MeshBasicMaterial({ color: boardColors.left }),   // Left side
+    new THREE.MeshBasicMaterial({ color: boardColors.top }),    // Top side
+    new THREE.MeshBasicMaterial({ color: boardColors.bottom }), // Bottom side
+    new THREE.MeshBasicMaterial({ color: boardColors.front }),  // Front side
+    new THREE.MeshBasicMaterial({ color: boardColors.back })    // Back side
+  ];
+
+  const xColor = 0x0000ff;
+  const oColor = 0xff0000;
+
+  const highlightColor = 0xffff00; // Yellow color for highlight
+  const highlightMaterial = new THREE.MeshBasicMaterial({ color: highlightColor });
 
   const points: Array<THREE.Vector3> = [
     new THREE.Vector3(-0.523903403218816, 0.0593068624413402, -0.8497104919695334),
@@ -23,28 +66,74 @@
     new THREE.Vector3(-0.523903403218816, -0.0593068624413402, 0.8497104919695334)
   ];
 
+  const fontLoader = new FontLoader();
+  let font: Font;
+
+  fontLoader.load('/fonts/helvetiker_bold.typeface.json', loadedFont => {
+    font = loadedFont;
+  });
+
+  function createTextGeometry(text: string) {
+    return new TextGeometry(text, {
+      font: font,
+      size: textSize,
+      height: textHeight
+    });
+  }
+
   function updateCell(
-    boardRow: number,
-    boardCol: number,
-    cellRow: number,
-    cellCol: number,
+    boardRow: number, boardCol: number,
+    cellRow: number, cellCol: number,
     value: string | null
   ) {
     const cellName = `Cell_${boardRow}_${boardCol}_${cellRow}_${cellCol}`;
     const cell = interactiveObjects.find(obj => obj.name === cellName);
+
     if (cell) {
-      if (value === 'X') {
-        cell.material = new THREE.MeshBasicMaterial({ color: 0x0000ff });
-      } else if (value === 'O') {
-        cell.material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+      // Remove existing text if any
+      if (cell.userData.textMesh) {
+        scene.remove(cell.userData.textMesh);
+        cell.userData.textMesh.geometry.dispose();
+        cell.userData.textMesh.material.dispose();
+        delete cell.userData.textMesh;
+      }
+
+      if (value === 'X' || value === 'O') {
+        const textGeometry = createTextGeometry(value);
+        cell.geometry.dispose(); // Dispose of the old geometry
+        cell.geometry = textGeometry; // Replace the geometry with the new text geometry
+        cell.geometry.translate(-0.075, -0.12, 0);
+        (cell.material as THREE.MeshBasicMaterial).color.set(value === 'X' ? xColor : oColor); // Update the color
       } else {
+        delete cell.userData.textMesh;
+        cell.visible = true;
         cell.material = cellMaterial;
       }
     }
   }
 
+  function highlightNextBoard(boardRow: number, boardCol: number) {
+    scene.traverse((object) => {
+      if (object instanceof THREE.Mesh && object.name.startsWith('Board_')) {
+        object.material = boardMaterials;
+      }
+    });
+
+    const boardName = `Board_${boardRow}_${boardCol}`;
+    const board = scene.getObjectByName(boardName) as THREE.Mesh;
+
+    if (board) {
+      board.material = new THREE.MeshBasicMaterial({ color: highlightColor });
+      console.log(board.name);
+    }
+  }
+
   export function updateScene(newState: IGameState) {
-    alert('Updating 3D scene with new state: ' + JSON.stringify(newState));
+    if (!newState.gameStarted) {
+      console.log('Game not started yet.');
+      return;
+    }
+
     newState.boards.forEach((boardRow, boardRowIndex) => {
       boardRow.forEach((board, boardColIndex) => {
         board.forEach((cellRow, cellRowIndex) => {
@@ -54,12 +143,16 @@
         });
       });
     });
+
+    if (newState.next_board) {
+      highlightNextBoard(newState.next_board[0], newState.next_board[1]);
+    }
   }
 
   onMount(() => {
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
-    const renderer = new THREE.WebGLRenderer();
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
+    renderer = new THREE.WebGLRenderer();
 
     renderer.setSize(container.clientWidth, container.clientHeight);
     container.appendChild(renderer.domElement);
@@ -68,25 +161,14 @@
     const mouse = new THREE.Vector2();
     let needsUpdate = false;
 
-    const hoverMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-
-    const materials = [
-      new THREE.MeshMatcapMaterial({ color: 0xffffff }), // right side
-      new THREE.MeshMatcapMaterial({ color: 0xffffff }), // left side
-      new THREE.MeshBasicMaterial({ color: 0xffffff }), // top side
-      new THREE.MeshBasicMaterial({ color: 0xffffff }), // bottom side
-      new THREE.MeshMatcapMaterial({ color: 0xff00ff }), // front side
-      new THREE.MeshMatcapMaterial({ color: 0xff0000 })  // back side
-    ];
-
     camera.position.z = 3;
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.1;
     controls.rotateSpeed = 0.15;
 
-    const geometry = new THREE.BoxGeometry(0.7, 0.7, 0.05);
-    const cellGeometry = new THREE.BoxGeometry(0.2, 0.2, 0.02);
+    const geometry = new THREE.BoxGeometry(boardSize.width, boardSize.height, boardSize.depth);
+    const cellGeometry = new THREE.BoxGeometry(cellSize.width, cellSize.height, cellSize.depth);
 
     let boardIndex = 0;
     points.forEach(point => {
@@ -96,12 +178,13 @@
 
       const boardRow = Math.floor(boardIndex / 3);
       const boardCol = boardIndex % 3;
-      boardGroup.name = `Board_${boardRow}_${boardCol}`;
+      boardGroup.name = `Board_Group_${boardRow}_${boardCol}`;
 
-      const squareOutside = new THREE.Mesh(geometry, materials);
+      const squareOutside = new THREE.Mesh(geometry, boardMaterials);
+      squareOutside.name = `Board_${boardRow}_${boardCol}`;
       boardGroup.add(squareOutside);
 
-      const gridHelper = new THREE.GridHelper(0.7, 3, 0xffffff, 0xffffff);
+      const gridHelper = new THREE.GridHelper(boardSize.width, 3, cellColor, cellColor);
       gridHelper.position.set(0, 0, -0.03);
       gridHelper.geometry.rotateX(Math.PI / 2);
       gridHelper.lookAt(new THREE.Vector3());
@@ -111,7 +194,7 @@
         for (let j = 0; j < 3; j++) {
           const cell = new THREE.Mesh(cellGeometry, cellMaterial);
           const xOffset = (1 - j) * 0.25;
-          const yOffset = (1 - i) * 0.25; // Adjust to make (0,0) at top-left
+          const yOffset = (1 - i) * 0.25;
           cell.position.set(xOffset, yOffset, -0.06);
           cell.name = `Cell_${boardRow}_${boardCol}_${i}_${j}`;
           boardGroup.add(cell);
@@ -166,6 +249,12 @@
         const indices = clickedObject.name.split('_').slice(1).map(Number);
         const [boardRow, boardCol, cellRow, cellCol] = indices;
 
+        const state = get(gameState);
+        if (!state.gameStarted) {
+          alert('Game not started yet.');
+          return;
+        }
+
         sendMove(boardRow, boardCol, cellRow, cellCol);
       }
     }
@@ -184,13 +273,24 @@
       container.removeChild(renderer.domElement);
     };
   });
+
+  $: {
+    const state = get(gameState);
+    if (state.gameStarted) {
+      updateScene(state);
+    }
+  }
 </script>
 
-<div bind:this={container} class="container"></div>
+<div bind:this={container} class="container" class:blur={blur}></div>
 
 <style>
   .container {
     width: 100vh;
     height: 80vh;
+  }
+
+ .blur {
+    filter: blur(10px);
   }
 </style>
