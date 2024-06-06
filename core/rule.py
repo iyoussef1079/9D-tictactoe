@@ -1,4 +1,5 @@
 from core.board_9D import Board_9D
+from core.game_checker import GameChecker
 
 
 class MoveRuleStrategy:
@@ -12,11 +13,11 @@ class MoveRuleStrategy:
 
 
 class StandardUltimateTicTacToeRule(MoveRuleStrategy):
-    def next_board(self, board_position, cell_position, current_board: Board_9D):
+    def next_board(self, board_position, cell_position, current_board: Board_9D)->tuple[int, int]:
         """
         Implements the standard Ultimate Tic-Tac-Toe rule:
         The next board is determined directly by the cell's position in the current board.
         """
-        if current_board.board[cell_position[0]][cell_position[1]].is_full():  # Assuming an is_full method exists
+        if current_board.board[cell_position[0]][cell_position[1]].is_full() or GameChecker.check_winner(current_board.board[cell_position[0]][cell_position[1]]) is not None:  # Assuming an is_full method exists
             return None
         return cell_position  # The next board's position is the same as the cell's position in the current board.

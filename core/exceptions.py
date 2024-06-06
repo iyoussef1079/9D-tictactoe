@@ -11,3 +11,11 @@ class MoveRuleException(Exception):
     def __init__(self, message="Rule violation: Current rule does not allow this move"):
         self.message = message
         super().__init__(self.message)
+
+
+class AlreadyWinBoardException(Exception):
+    """Exception raised when trying to play on a board that has already been won."""
+
+    def __init__(self, message="This board has already been won"):
+        self.message = message
+        super().__init__(self.message)

@@ -1,24 +1,38 @@
-from typing import Any, List
-
-from pydantic import BaseModel
+from dataclasses import asdict, dataclass
+from typing import Any, List, Set, Tuple
 
 from core.board_9D import Board_9D
-from core.game_checker_9d import GameChecker9D
+from core.game_checker_9d import GameChecker9D, GameChecker
 from core.rule import StandardUltimateTicTacToeRule, MoveRuleStrategy
-from core.exceptions import MoveRuleException
+from core.exceptions import AlreadyWinBoardException, MoveRuleException
 
 class Player:
     def __init__(self, name, symbol):
         self.name = name
         self.symbol = symbol  # 'X' or 'O'
 
-class GameState(BaseModel):
+@dataclass
+class GameState:
     game_id: str
-    boards: Any
-    current_player: Any
-    next_board: Any = None
+    boards: List[List[List[List[str]]]]
+    current_player: str
+    next_board: tuple[int, int] = None
     game_over: Any = False
+    won_board: Set[Tuple[Tuple[int, int], str]] = None
 
+    def __init__(self, game_id, boards, current_player, next_board, game_over):
+        self.game_id = game_id
+        self.boards = boards
+        self.current_player = current_player
+        self.next_board = next_board
+        self.game_over = game_over
+
+    def to_dict(self):
+        # Custom handling for non-serializable fields if necessary
+        result = asdict(self)
+        if self.next_board is not None:
+            result['next_board'] = list(self.next_board)
+        return result
 
 class GameController:
     def __init__(self, game_id: str, board_9d_instance: Board_9D, game_checker_9d_instance: GameChecker9D, rule: MoveRuleStrategy):
@@ -41,6 +55,9 @@ class GameController:
         """Place a piece on the board and switch turns."""
         if self.next_board and board_position != self.next_board:
             raise MoveRuleException()
+        elif GameChecker.check_winner(self.board.board[board_position[0]][board_position[1]]):
+            raise AlreadyWinBoardException()
+
         print(f"Player {self.current_player.name} ({self.current_player.symbol}) plays at {board_position} {cell_position}")
         self.board.place_piece(board_position, cell_position, self.current_player.symbol)
         self.next_board = self.rule.next_board(board_position, cell_position, self.board)
@@ -48,7 +65,7 @@ class GameController:
 
         return self.check_game_over()
 
-    def check_game_over(self):
+    def check_game_over(self) -> str:
         return self.game_checker.check_winner_9d(self.board)
 
     def get_state(self) -> GameState:

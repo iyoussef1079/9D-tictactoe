@@ -1,5 +1,4 @@
 from core.exceptions import CellOccupiedError
-
 class Board:
     def __init__(self, board=None) -> None:
         if board is not None:

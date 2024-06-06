@@ -80,10 +80,10 @@ async def websocket_endpoint(websocket: WebSocket, game_id: str):
                     await websocket.send_text(json.dumps({"type": "error", "message": "Game not found"}))
                     continue
                 try:
-                    game_over = game.play_move(move.board_position, move.cell_position)
+                    game.play_move(move.board_position, move.cell_position)
                     state = game.get_state()
-                    state["game_over"] = game_over
-                    response = json.dumps({"type": "game_state", "state": state})
+                    print(f"Sending game state: {state}")
+                    response = json.dumps({"type": "game_state", "state": state.to_dict()})
                     for client in clients[move.game_id]:
                         await client.send_text(response)
                 except Exception as e:

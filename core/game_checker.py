@@ -2,7 +2,7 @@ from core.board_9D import Board
 
 class GameChecker:
     @staticmethod
-    def check_winner(board_instance: Board):
+    def check_winner(board_instance: Board) -> str:
         # Fetch board state
         board = board_instance.to_serializable()
 
@@ -18,7 +18,7 @@ class GameChecker:
         return None
 
     @staticmethod
-    def is_draw(board_instance: Board):
+    def is_draw(board_instance: Board) -> bool:
         # Fetch board state
         board = board_instance.to_serializable()
 
