@@ -8,7 +8,6 @@
   import { Font, FontLoader } from 'three/addons/loaders/FontLoader.js';
   import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
   import * as TWEEN from '@tweenjs/tween.js';
-    import type { List } from 'postcss/lib/list';
 
   export let blur = false;
 
@@ -19,6 +18,8 @@
   let renderer: THREE.WebGLRenderer;
   let hoveredObject: any = null;
   let interactiveObjects: THREE.Mesh[] = [];
+
+  let currentTurn: string | null;  // Initialize with default player, change as needed
 
   // Define variables for colors, materials, and sizes
   const boardColors = {
@@ -119,8 +120,60 @@
     }
   }
 
-  function highlightNextBoard(next_board: Array<number> | null | undefined) {
+  function calculateCameraPosition(boardPosition: THREE.Vector3, distance: number) {
+    const direction = boardPosition.clone().normalize();
+    const targetPosition = boardPosition.clone().add(direction.multiplyScalar(distance));
+    return targetPosition;
+  }
 
+  function focus_on_board(board_index: Array<number>) {
+    const boardRow: number = board_index[0];
+    const boardCol: number = board_index[1];
+
+    const boardName = `Board_${boardRow}_${boardCol}`;
+    const board = scene.getObjectByName(boardName) as THREE.Mesh;
+
+    if (board === undefined) {
+      console.error(`Board ${boardRow}, ${boardCol} not found.`);
+      return;
+    }
+
+    const targetPosition = board.parent ? calculateCameraPosition(board.parent.position, 1) : new THREE.Vector3();
+
+    new TWEEN.Tween(camera.position)
+      .to({ x: targetPosition.x, y: targetPosition.y, z: targetPosition.z }, 1000)
+      .easing(TWEEN.Easing.Quadratic.Out)
+      .start();
+    new TWEEN.Tween(controls.target)
+      .to({ x: board.position.x, y: board.position.y, z: board.position.z }, 1000)
+      .easing(TWEEN.Easing.Quadratic.Out)
+      .start();
+  }
+
+  function drawWinningSymbol(boardRow: number, boardCol: number, symbol: string) {
+    const boardName = `Board_${boardRow}_${boardCol}`;
+    const board = scene.getObjectByName(boardName) as THREE.Mesh;
+
+    if (board) {
+      const board_parent = board.parent as THREE.Group;
+      const textGeometry = createTextGeometry(symbol);
+      centerGeometry(textGeometry);
+
+      const material = new THREE.MeshBasicMaterial({ color: symbol === 'X' ? xColor : oColor });
+      const textMesh = new THREE.Mesh(textGeometry, material);
+
+      // Position the text mesh to match the board parent's position and rotation
+      textMesh.position.copy(board_parent.position);
+      textMesh.rotation.copy(board_parent.rotation);
+
+      textMesh.scale.set(3, 3, 3); // Scale up the symbol
+
+      scene.add(textMesh);
+    }
+  }
+
+
+  function highlightNextBoard(next_board: Array<number> | null | undefined) {
     scene.traverse((object) => {
       if (object instanceof THREE.Mesh && object.name.startsWith('Board_')) {
         object.material = boardMaterials;
@@ -139,18 +192,7 @@
 
     if (board) {
       board.material = new THREE.MeshBasicMaterial({ color: highlightColor });
-      console.log(board.name);
-
-      // Rotate camera to focus on the highlighted board
-      // const targetPosition = board.position.clone().add(new THREE.Vector3(0, 0, 1));
-      // new TWEEN.Tween(camera.position)
-      //   .to({ x: targetPosition.x, y: targetPosition.y, z: targetPosition.z }, 1000)
-      //   .easing(TWEEN.Easing.Quadratic.Out)
-      //   .start();
-      // new TWEEN.Tween(controls.target)
-      //   .to({ x: board.position.x, y: board.position.y, z: board.position.z }, 1000)
-      //   .easing(TWEEN.Easing.Quadratic.Out)
-      //   .start();
+      focus_on_board(next_board);
     }
   }
 
@@ -170,7 +212,17 @@
       });
     });
 
+    if (newState.won_board) {
+      for (const [player, boards] of Object.entries(newState.won_board)) {
+        boards.forEach(([boardRow, boardCol]) => {
+          drawWinningSymbol(boardRow, boardCol, player);
+        });
+      }
+    }
+
     highlightNextBoard(newState.next_board);
+    
+    currentTurn = newState.current_player; // Update the current turn
   }
 
   onMount(() => {
@@ -311,6 +363,9 @@
 </script>
 
 <div bind:this={container} class="container" class:blur={blur}></div>
+{#if currentTurn}
+<div class="player-turn">{currentTurn}'s Turn</div>
+{/if}
 
 <style>
   .container {
@@ -320,5 +375,17 @@
 
   .blur {
     filter: blur(10px);
+  }
+
+  .player-turn {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    font-size: 24px;
+    font-weight: bold;
+    color: white;
+    background-color: black;
+    padding: 10px;
+    border-radius: 5px;
   }
 </style>

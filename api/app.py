@@ -47,7 +47,7 @@ async def get_board(game_id: str):
     if not game:
         raise HTTPException(status_code=404, detail="Game not found")
 
-    return game.board.to_serializable()
+    return game.get_state()
 
 @app.post("/make_move/")
 async def make_move(move: Move):

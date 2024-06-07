@@ -8,6 +8,7 @@ export interface IGameState {
   current_player?: string;
   next_board?: Array<number>;
   game_over?: boolean;
+  won_board?: { [key: string]: Array<Array<number>> }; // New attribute
 }
 
 let socket: WebSocket | null = null;
@@ -61,6 +62,7 @@ export async function startGame(updateGameStateCallback: (newState: any) => void
       ...state,
       game_id: data.state.game_id,
       boards: data.state.boards,
+      won_board: data.state.won_board,  // Include won_board in the state
       gameStarted: true
     }));
     updateGameStateCallback(get(gameState));
@@ -74,7 +76,12 @@ export async function getBoard(gameId: string, updateGameStateCallback: (newStat
   try {
     const response = await fetch(`http://127.0.0.1:8000/get_board/${gameId}`);
     const data = await response.json();
-    gameState.update(state => ({ ...state, boards: data, game_id: gameId }));
+    gameState.update(state => ({
+      ...state,
+      boards: data.boards,
+      won_board: data.won_board,  // Include won_board in the state
+      game_id: gameId
+    }));
     updateGameStateCallback(get(gameState));
   } catch (error: any) {
     handleError(error.message);
