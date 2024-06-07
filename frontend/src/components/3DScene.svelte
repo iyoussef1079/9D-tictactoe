@@ -19,9 +19,8 @@
   let hoveredObject: any = null;
   let interactiveObjects: THREE.Mesh[] = [];
 
-  let currentTurn: string | null = null;  // Initialize with default player, change as needed
+  let currentTurn: string | null = null;
 
-  // Define variables for colors, materials, and sizes
   const boardColors = {
     right: 0xf0f0f0,
     left: 0xf0f0f0,
@@ -31,11 +30,11 @@
     back: 0x333333
   };
 
-  const cellColor = 0x87cefa; // Light Blue
-  const hoverColor = 0xffa500; // Orange
-  const xColor = 0x1e90ff; // Dodger Blue
-  const oColor = 0xff4500; // Orange Red
-  const highlightColor = 0xffff00; // Yellow color for highlight
+  const cellColor = 0x87cefa;
+  const hoverColor = 0xffa500;
+  const xColor = 0x1e90ff;
+  const oColor = 0xff4500;
+  const highlightColor = 0xffff00;
 
   const cellSize = { width: 0.2, height: 0.2, depth: 0.02 };
   const boardSize = { width: 0.7, height: 0.7, depth: 0.05 };
@@ -46,14 +45,13 @@
   const hoverMaterial = new THREE.MeshBasicMaterial({ color: hoverColor });
   const highlightMaterial = new THREE.MeshBasicMaterial({ color: highlightColor });
 
-  // Create materials for each side of the board
   const boardMaterials = [
-    new THREE.MeshBasicMaterial({ color: boardColors.right }),  // Right side
-    new THREE.MeshBasicMaterial({ color: boardColors.left }),   // Left side
-    new THREE.MeshBasicMaterial({ color: boardColors.top }),    // Top side
-    new THREE.MeshBasicMaterial({ color: boardColors.bottom }), // Bottom side
-    new THREE.MeshBasicMaterial({ color: boardColors.front }),  // Front side
-    new THREE.MeshBasicMaterial({ color: boardColors.back })    // Back side
+    new THREE.MeshBasicMaterial({ color: boardColors.right }),
+    new THREE.MeshBasicMaterial({ color: boardColors.left }),
+    new THREE.MeshBasicMaterial({ color: boardColors.top }),
+    new THREE.MeshBasicMaterial({ color: boardColors.bottom }),
+    new THREE.MeshBasicMaterial({ color: boardColors.front }),
+    new THREE.MeshBasicMaterial({ color: boardColors.back })
   ];
 
   const points: Array<THREE.Vector3> = [
@@ -101,21 +99,19 @@
     const cell = interactiveObjects.find(obj => obj.name === cellName);
 
     if (cell) {
-      // Replace the cell's geometry with text geometry if X or O
       if (value === 'X' || value === 'O') {
         const textGeometry = createTextGeometry(value);
         centerGeometry(textGeometry);
-        cell.geometry.dispose(); // Dispose of the old geometry
-        cell.geometry = textGeometry; // Replace the geometry with the new text geometry
-        (cell.material as THREE.MeshBasicMaterial).color.set(value === 'X' ? xColor : oColor); // Update the color
-        cell.userData.originalColor = value === 'X' ? xColor : oColor; // Save original color
+        cell.geometry.dispose();
+        cell.geometry = textGeometry;
+        (cell.material as THREE.MeshBasicMaterial).color.set(value === 'X' ? xColor : oColor);
+        cell.userData.originalColor = value === 'X' ? xColor : oColor;
       } else {
-        // Restore the original geometry and color if value is null
         const cellGeometry = new THREE.BoxGeometry(cellSize.width, cellSize.height, cellSize.depth);
-        cell.geometry.dispose(); // Dispose of the old geometry
-        cell.geometry = cellGeometry; // Replace the geometry with the new box geometry
-        (cell.material as THREE.MeshBasicMaterial).color.set(cellColor); // Update the color
-        cell.userData.originalColor = cellColor; // Save original color
+        cell.geometry.dispose();
+        cell.geometry = cellGeometry;
+        (cell.material as THREE.MeshBasicMaterial).color.set(cellColor);
+        cell.userData.originalColor = cellColor;
       }
     }
   }
@@ -126,7 +122,7 @@
     return targetPosition;
   }
 
-  function focus_on_board(board_index: Array<number>) {
+  export function focus_on_board(board_index: Array<number>) {
     const boardRow: number = board_index[0];
     const boardCol: number = board_index[1];
 
@@ -162,16 +158,14 @@
       const material = new THREE.MeshBasicMaterial({ color: symbol === 'X' ? xColor : oColor });
       const textMesh = new THREE.Mesh(textGeometry, material);
 
-      // Position the text mesh to match the board parent's position and rotation
       textMesh.position.copy(board_parent.position);
       textMesh.rotation.copy(board_parent.rotation);
 
-      textMesh.scale.set(3, 3, 3); // Scale up the symbol
+      textMesh.scale.set(3, 3, 3);
 
       scene.add(textMesh);
     }
   }
-
 
   function highlightNextBoard(next_board: Array<number> | null | undefined) {
     scene.traverse((object) => {
@@ -222,7 +216,7 @@
 
     highlightNextBoard(newState.next_board);
 
-    currentTurn = newState.current_player ?? null; // Update the current turn
+    currentTurn = newState.current_player ?? null;
   }
 
   onMount(() => {
@@ -239,7 +233,7 @@
     let needsUpdate = false;
 
     camera.position.z = 3;
-    
+
     controls.enableDamping = true;
     controls.dampingFactor = 0.1;
     controls.rotateSpeed = 0.15;
@@ -274,7 +268,7 @@
           const yOffset = (1 - i) * 0.25;
           cell.position.set(xOffset, yOffset, -0.06);
           cell.name = `Cell_${boardRow}_${boardCol}_${i}_${j}`;
-          cell.userData.originalColor = cellColor; // Save original color
+          cell.userData.originalColor = cellColor;
           boardGroup.add(cell);
           interactiveObjects.push(cell);
         }
@@ -286,7 +280,7 @@
 
     const animate = () => {
       requestAnimationFrame(animate);
-      controls.update(); // only required if damping is enabled
+      controls.update();
       TWEEN.update();
 
       if (needsUpdate) {
@@ -384,8 +378,8 @@
     left: 10px;
     font-size: 24px;
     font-weight: bold;
-    color: white;
-    background-color: black;
+    color: black;
+    background-color: rgb(0, 192, 251);
     padding: 10px;
     border-radius: 5px;
   }

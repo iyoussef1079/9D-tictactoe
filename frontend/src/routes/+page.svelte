@@ -1,8 +1,8 @@
 <script lang="ts">
   import ThreeDScene from '../components/3DScene.svelte';
+  import MiniMap from '../components/MiniMap.svelte';
   import { startGame, connectWebSocket, type IGameState } from '../api/game_api';
   import { onMount } from 'svelte';
-  import { isWebSocketConnected } from '../api/store';
   import { writable, get } from 'svelte/store';
   import { gameState } from '../api/store';
 
@@ -11,9 +11,6 @@
   let loading = false;
   let threeDSceneRef: ThreeDScene | null = null;
 
-  // Subscribe to WebSocket connection state
-
-  // Function to handle starting the game
   async function handleStartGame() {
     loading = true;
     try {
@@ -50,13 +47,11 @@
     }
   }
 
-  // Establish WebSocket connection on component mount
   onMount(() => {
     const state = get(gameState);
     if (state.game_id) {
       connectWebSocket(state.game_id, (newState: IGameState) => {
         if (threeDSceneRef) {
-          console.log('Updating 3D scene with new state:', JSON.stringify(newState));
           threeDSceneRef.updateScene(newState);
         }
       });
@@ -64,35 +59,75 @@
   });
 </script>
 
-<div class="container h-full mx-auto flex justify-center items-center relative">
-  <div class="relative top-0 left-0 m-4">
+<div class="container mx-auto flex flex-col items-center justify-center min-h-screen bg-dark text-white p-4 relative">
+  <div class="controls mb-4">
     <button
       on:click={handleStartGame} 
-      class="bg-blue-500 text-white py-2 px-4 rounded"
+      class="bg-blue-500 hover:bg-blue-700 text-white py-2 px-4 rounded"
     >
       {#if loading}Starting...{/if}
       {#if !loading}Start Game{/if}
     </button>
     {#if errorMessage}
-      <p class="text-red-500">{errorMessage}</p>
+      <p class="text-red-500 mt-2">{errorMessage}</p>
     {/if}
   </div>
-  <ThreeDScene bind:this={threeDSceneRef} blur={!gameStarted} />
+  <div class="flex flex-col lg:flex-row lg:space-x-8 w-full items-center lg:items-start">
+    <div class="scene-container flex-grow lg:flex-shrink-0 p-4 bg-dark-secondary rounded-lg mb-4 lg:mb-0 w-full lg:w-auto relative">
+      <ThreeDScene bind:this={threeDSceneRef} blur={!gameStarted} />
+    </div>
+    <div class="minimap-container flex-grow lg:flex-shrink-0 p-4 bg-dark-secondary rounded-lg w-full lg:w-auto">
+      <MiniMap {threeDSceneRef} />
+    </div>
+  </div>
 </div>
 
 <style>
+  :global(body) {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background-color: #121212;
+    color: #ffffff;
+  }
   .container {
-    width: 100vh;
-    height: 80vh;
+    max-width: 1200px;
+  }
+  .controls {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .scene-container, .minimap-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border: 2px solid #333;
+  }
+  .scene-container {
+    max-width: 100%;
+  }
+  .minimap-container {
+    max-width: 100%;
+  }
+  .bg-dark {
+    background-color: #121212;
+  }
+  .bg-dark-secondary {
+    background-color: #1e1e1e;
+  }
+  .player-turn {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    font-size: 24px;
+    font-weight: bold;
+    color: black;
+    background-color: rgb(0, 192, 251);
+    padding: 10px;
+    border-radius: 5px;
   }
   button:disabled {
     background-color: gray;
     cursor: not-allowed;
-  }
-  .relative {
-    position: relative;
-  }
-  .absolute {
-    position: absolute;
   }
 </style>
