@@ -62,8 +62,9 @@ export async function startGame(updateGameStateCallback: (newState: any) => void
       ...state,
       game_id: data.state.game_id,
       boards: data.state.boards,
-      won_board: data.state.won_board,  // Include won_board in the state
-      gameStarted: true
+      won_board: data.state.won_board,
+      gameStarted: true,
+      current_player: data.state.current_player,
     }));
     updateGameStateCallback(get(gameState));
     connectWebSocket(data.state.game_id, updateGameStateCallback);

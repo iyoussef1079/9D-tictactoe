@@ -19,7 +19,7 @@
   let hoveredObject: any = null;
   let interactiveObjects: THREE.Mesh[] = [];
 
-  let currentTurn: string | null;  // Initialize with default player, change as needed
+  let currentTurn: string | null = null;  // Initialize with default player, change as needed
 
   // Define variables for colors, materials, and sizes
   const boardColors = {
@@ -221,8 +221,8 @@
     }
 
     highlightNextBoard(newState.next_board);
-    
-    currentTurn = newState.current_player; // Update the current turn
+
+    currentTurn = newState.current_player ?? null; // Update the current turn
   }
 
   onMount(() => {
@@ -358,13 +358,14 @@
     const state = get(gameState);
     if (state.gameStarted) {
       updateScene(state);
+      currentTurn = state.current_player ?? null;
     }
   }
 </script>
 
 <div bind:this={container} class="container" class:blur={blur}></div>
 {#if currentTurn}
-<div class="player-turn">{currentTurn}'s Turn</div>
+  <div class="player-turn">{currentTurn}'s Turn</div>
 {/if}
 
 <style>
