@@ -7,7 +7,7 @@ export interface IGameState {
   boards: Array<Array<Array<Array<string | null>>>>;
   current_player?: string;
   next_board?: Array<number>;
-  game_over?: boolean;
+  game_over?: string | null;
   won_board?: { [key: string]: Array<Array<number>> }; // New attribute
 }
 

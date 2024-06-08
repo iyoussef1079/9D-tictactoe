@@ -64,6 +64,7 @@
     height: 100%;
     aspect-ratio: 1;
     border: 1px solid #ccc;
+    color: rgb(255, 0, 115);
   }
   .highlight {
     background-color: yellow;

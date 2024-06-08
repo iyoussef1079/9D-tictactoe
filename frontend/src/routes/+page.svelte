@@ -62,7 +62,7 @@
 <div class="container mx-auto flex flex-col items-center justify-center min-h-screen bg-dark text-white p-4 relative">
   <div class="controls mb-4">
     <button
-      on:click={handleStartGame} 
+      on:click={handleStartGame}
       class="bg-blue-500 hover:bg-blue-700 text-white py-2 px-4 rounded"
     >
       {#if loading}Starting...{/if}

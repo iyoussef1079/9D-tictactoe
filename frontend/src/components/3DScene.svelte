@@ -190,6 +190,43 @@
     }
   }
 
+  function animateEndGame(game_over: string | null) {
+    if (game_over === 'draw') {
+      const message = `It's a Draw!`;
+      const textGeometry = createTextGeometry(message);
+      centerGeometry(textGeometry);
+
+      const material = new THREE.MeshBasicMaterial({ color: highlightColor });
+      const textMesh = new THREE.Mesh(textGeometry, material);
+      textMesh.position.set(0, 0, 25);
+
+      scene.add(textMesh);
+
+      new TWEEN.Tween(textMesh.scale)
+        .to({ x: 2, y: 2, z: 2 }, 1000)
+        .easing(TWEEN.Easing.Elastic.Out)
+        .start();
+    }
+    else {
+      const message = `${game_over} Wins!`;
+      const textGeometry = createTextGeometry(message);
+      centerGeometry(textGeometry);
+
+      const material = new THREE.MeshBasicMaterial({ color: game_over === 'X' ? xColor : oColor });
+      const textMesh = new THREE.Mesh(textGeometry, material);
+      textMesh.position.set(0, 0, 15);
+
+      scene.add(textMesh);
+
+      const targetPosition = calculateCameraPosition(textMesh.position, 1);
+
+      new TWEEN.Tween(camera.position)
+        .to({ x: targetPosition.x, y: targetPosition.y, z: targetPosition.z }, 1000)
+        .easing(TWEEN.Easing.Quadratic.Out)
+        .start();
+    }
+  }
+
   export function updateScene(newState: IGameState) {
     if (!newState.gameStarted) {
       console.log('Game not started yet.');
@@ -217,6 +254,10 @@
     highlightNextBoard(newState.next_board);
 
     currentTurn = newState.current_player ?? null;
+
+    if (newState.game_over) {
+      animateEndGame(newState.game_over);
+    }
   }
 
   onMount(() => {
