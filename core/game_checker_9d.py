@@ -17,4 +17,4 @@ class GameChecker9D:
                     if GameChecker.is_draw(board_instance):
                         results[r][c] = None  # None for Draw
 
-        return GameChecker.check_winner(Board(results))
+        return GameChecker.check_win_or_draw(Board(results))

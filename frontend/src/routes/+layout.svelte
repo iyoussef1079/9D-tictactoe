@@ -29,7 +29,7 @@
 		<!-- App Bar -->
 		<AppBar>
 			<svelte:fragment slot="lead">
-				<strong class="text-xl uppercase">Skeleton</strong>
+				<strong class="text-xl uppercase">9D TicTacToe by Youssef Diallo</strong>
 			</svelte:fragment>
 			<svelte:fragment slot="trail">
 				<a

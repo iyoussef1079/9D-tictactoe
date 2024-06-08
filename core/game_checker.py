@@ -26,3 +26,12 @@ class GameChecker:
         if all(cell is not None for row in board for cell in row):
             return GameChecker.check_winner(board_instance) is None
         return False
+
+    @staticmethod
+    def check_win_or_draw(board_instance: Board) -> str:
+        winner = GameChecker.check_winner(board_instance)
+        if winner:
+            return winner
+        elif GameChecker.is_draw(board_instance):
+            return 'draw'
+        return None

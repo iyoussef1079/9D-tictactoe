@@ -20,6 +20,10 @@ class Board:
         """Check if the board is full."""
         return all(cell is not None for row in self.board for cell in row)
 
+    def get_available_moves(self):
+        """Get a list of available moves on the board."""
+        return [(r, c) for r, row in enumerate(self.board) for c, cell in enumerate(row) if cell is None]
+
 class Board_9D:
     def __init__(self) -> None:
         self.board = [[Board() for _ in range(3)] for _ in range(3)]
@@ -36,3 +40,8 @@ class Board_9D:
         """
         board_row, board_col = board_position
         self.board[board_row][board_col].place_piece(cell_position, piece)
+
+    def get_available_moves(self):
+        """Get a list of available moves on the 9D board."""
+        return [(r, c, cell_pos) for r, row in enumerate(self.board) for c, board in enumerate(row)
+                for cell_pos in board.get_available_moves()]

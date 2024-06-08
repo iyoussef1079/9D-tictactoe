@@ -1,3 +1,4 @@
+import asyncio
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
@@ -6,6 +7,7 @@ import json
 from typing import List, Dict, Any
 
 # Assuming GameController, GameChecker9D, Board_9D are defined appropriately
+from core.ai_player import RandomAIPlayer
 from core.game_controller import GameController
 from core.board_9D import Board_9D
 from core.game_checker_9d import GameChecker9D
@@ -32,14 +34,21 @@ class Move(BaseModel):
     cell_position: List[int]
 
 @app.get("/start_game/")
-async def start_game():
-    game_id = str(len(games) + 1)  # simple unique ID generation
+async def start_game(ai: bool = False):
+    game_id = str(len(games) + 1)
     board = Board_9D()
     game_checker = GameChecker9D()
     rule = StandardUltimateTicTacToeRule()
-    game_controller = GameController(game_id, board, game_checker, rule)
+    ai_player = RandomAIPlayer("AI", 'O') if ai else None
+    game_controller = GameController(game_id, board, game_checker, rule, ai_player)
     games[game_id] = game_controller
     return {"type": "game_state", "state": game_controller.get_state()}
+
+@app.get("/start_game_with_ai/")
+async def start_game_with_ai():
+    print("Starting game with AI")
+    return await start_game(ai=True)
+
 
 @app.get("/get_board/{game_id}")
 async def get_board(game_id: str):
@@ -80,12 +89,24 @@ async def websocket_endpoint(websocket: WebSocket, game_id: str):
                     await websocket.send_text(json.dumps({"type": "error", "message": "Game not found"}))
                     continue
                 try:
+                    # User play move
                     game.play_move(move.board_position, move.cell_position)
                     state = game.get_state()
-                    print(f"Sending game state: {state}")
+                    print(f"Sending game state for game: {move.game_id}")
                     response = json.dumps({"type": "game_state", "state": state.to_dict()})
                     for client in clients[move.game_id]:
                         await client.send_text(response)
+
+                    await asyncio.sleep(3)
+
+                    # AI move (if applicable)
+                    print(f"Ai player: {game.ai_player}")
+                    if game.ai_player and game.current_player.symbol == game.ai_player.symbol:
+                        game.play_ai_move()
+                        state = game.get_state()
+                        response = json.dumps({"type": "game_state", "state": state.to_dict()})
+                        for client in clients[move.game_id]:
+                            await client.send_text(response)
                 except Exception as e:
                     await websocket.send_text(json.dumps({"type": "error", "message": str(e)}))
     except WebSocketDisconnect:

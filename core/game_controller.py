@@ -1,6 +1,7 @@
 from dataclasses import asdict, dataclass
 from typing import Any, List, Set, Tuple
 
+from core.ai_player import AIPlayer
 from core.board_9D import Board_9D
 from core.game_checker_9d import GameChecker9D, GameChecker
 from core.rule import StandardUltimateTicTacToeRule, MoveRuleStrategy
@@ -38,7 +39,7 @@ class GameState:
 
 
 class GameController:
-    def __init__(self, game_id: str, board_9d_instance: Board_9D, game_checker_9d_instance: GameChecker9D, rule: MoveRuleStrategy):
+    def __init__(self, game_id: str, board_9d_instance: Board_9D, game_checker_9d_instance: GameChecker9D, rule: MoveRuleStrategy, ai_player: AIPlayer = None):
         self.game_id = game_id
         self.board = board_9d_instance
         self.game_checker = game_checker_9d_instance
@@ -49,15 +50,16 @@ class GameController:
         self.current_player = self.players['X']
         self.rule = rule
         self.next_board = None
-        self.won_board = {'X': [], 'O': []}  # Initialize the won_board dictionary
+        self.won_board = {'X': [], 'O': []}
+        self.ai_player = ai_player
 
     def switch_player(self):
-        """Switch the current player between 'X' and 'O'."""
         self.current_player = self.players['O'] if self.current_player == self.players['X'] else self.players['X']
 
     def play_move(self, board_position, cell_position):
-        """Place a piece on the board and switch turns."""
         if self.next_board and board_position != self.next_board:
+            print("board_position", board_position)
+            print("next_board", self.next_board)
             raise MoveRuleException()
         elif GameChecker.check_winner(self.board.board[board_position[0]][board_position[1]]):
             raise AlreadyWinBoardException()
@@ -65,14 +67,23 @@ class GameController:
         print(f"Player {self.current_player.name} ({self.current_player.symbol}) plays at {board_position} {cell_position}")
         self.board.place_piece(board_position, cell_position, self.current_player.symbol)
 
-        # Check if the board is won after the move
         if GameChecker.check_winner(self.board.board[board_position[0]][board_position[1]]):
             self.won_board[self.current_player.symbol].append(tuple(board_position))
 
         self.next_board = self.rule.next_board(board_position, cell_position, self.board)
         self.switch_player()
 
+        if self.current_player == self.ai_player:
+            self.play_ai_move()
+
         return self.check_game_over()
+
+    def play_ai_move(self):
+        ai_move = self.ai_player.get_move(self)
+        if ai_move:
+            board_position, cell_position = ai_move
+            print(f"AI Player: {self.current_player.name} ({self.current_player.symbol}) plays at board: {board_position} cell: {cell_position}")
+            self.play_move(board_position, cell_position)
 
     def check_game_over(self) -> str:
         return self.game_checker.check_winner_9d(self.board)
@@ -84,5 +95,12 @@ class GameController:
             current_player=self.current_player.symbol,
             next_board=self.next_board,
             game_over=self.check_game_over(),
-            won_board=self.won_board  # Include won_board in the game state
+            won_board=self.won_board
         )
+
+    def get_available_moves(self) -> list[Tuple[int, int]]:
+        if self.next_board:
+            available_moves =  self.board.board[self.next_board[0]][self.next_board[1]].get_available_moves()
+            zipped_moves = [[[self.next_board[0], self.next_board[1]], [move[0], move[1]]] for move in available_moves]
+            return zipped_moves
+        return self.board.get_available_moves()
