@@ -54,6 +54,25 @@ function waitForSocketConnection(callback: () => void) {
   }, 100);
 }
 
+export async function startGameVsAi(updateGameStateCallback: (newState: any) => void): Promise<void> {
+  try {
+    const response = await fetch('http://127.0.0.1:8000/start_game_with_ai/');
+    const data = await response.json();
+    gameState.update(state => ({
+      ...state,
+      game_id: data.state.game_id,
+      boards: data.state.boards,
+      won_board: data.state.won_board,
+      gameStarted: true,
+      current_player: data.state.current_player,
+    }));
+    updateGameStateCallback(get(gameState));
+    connectWebSocket(data.state.game_id, updateGameStateCallback);
+  } catch (error: any) {
+    handleError(error.message);
+  }
+}
+
 export async function startGame(updateGameStateCallback: (newState: any) => void): Promise<void> {
   try {
     const response = await fetch('http://127.0.0.1:8000/start_game/');

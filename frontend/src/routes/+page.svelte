@@ -1,7 +1,7 @@
 <script lang="ts">
   import ThreeDScene from '../components/3DScene.svelte';
   import MiniMap from '../components/MiniMap.svelte';
-  import { startGame, connectWebSocket, type IGameState } from '../api/game_api';
+  import { startGame, startGameVsAi, connectWebSocket, type IGameState } from '../api/game_api';
   import { onMount } from 'svelte';
   import { writable, get } from 'svelte/store';
   import { gameState } from '../api/store';
@@ -47,6 +47,43 @@
     }
   }
 
+  async function handleStartGameVsAi() {
+  loading = true;
+  try {
+    await startGameVsAi((newState: IGameState) => {
+      if (threeDSceneRef) {
+        threeDSceneRef.updateScene(newState);
+        gameStarted = true;
+        loading = false;
+        errorMessage = '';
+
+        gameState.update(state => ({
+          ...state,
+          gameStarted: true,
+          game_id: newState.game_id,
+          boards: newState.boards,
+          current_player: newState.current_player,
+          next_board: newState.next_board,
+          game_over: newState.game_over
+        }));
+      } else {
+        errorMessage = '3D Scene is not yet initialized. Please wait.';
+        loading = false;
+      }
+    });
+    const state = get(gameState);
+    connectWebSocket(state.game_id, (newState: IGameState) => {
+      if (threeDSceneRef) {
+        threeDSceneRef.updateScene(newState);
+      }
+    });
+  } catch (error: any) {
+    errorMessage = 'Failed to start the game against AI. Please try again.';
+    loading = false;
+  }
+}
+
+
   onMount(() => {
     const state = get(gameState);
     if (state.game_id) {
@@ -65,8 +102,15 @@
       on:click={handleStartGame}
       class="bg-blue-500 hover:bg-blue-700 text-white py-2 px-4 rounded"
     >
-      {#if loading}Starting...{/if}
-      {#if !loading}Start Game{/if}
+      {#if loading && !gameStarted}Starting...{/if}
+      {#if !loading || gameStarted}Start Game{/if}
+    </button>
+    <button
+      on:click={handleStartGameVsAi}
+      class="bg-green-500 hover:bg-green-700 text-white py-2 px-4 rounded mt-2"
+    >
+      {#if loading && !gameStarted}Starting...{/if}
+      {#if !loading || gameStarted}Play Against AI{/if}
     </button>
     {#if errorMessage}
       <p class="text-red-500 mt-2">{errorMessage}</p>
@@ -81,6 +125,7 @@
     </div>
   </div>
 </div>
+
 
 <style>
   :global(body) {
