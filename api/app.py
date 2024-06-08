@@ -44,7 +44,7 @@ async def start_game(ai: bool = False):
     board = Board_9D()
     game_checker = GameChecker9D()
     rule = StandardUltimateTicTacToeRule()
-    ai_player = MinimaxAIPlayer("AI", 'O', max_depth=4) if ai else None
+    ai_player = MinimaxAIPlayer("AI", 'O', max_depth=3) if ai else None
     game_controller = GameController(game_id, board, game_checker, rule, ai_player)
     games[game_id] = game_controller
     return {"type": "game_state", "state": game_controller.get_state()}

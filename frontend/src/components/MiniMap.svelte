@@ -30,6 +30,15 @@
     return state.boards[boardRow][boardCol][cellRow][cellCol] || '';
   }
 
+  function getMiniBoardWinner(boardRow: number, boardCol: number, state: IGameState): string | null {
+    for (const player in state.won_board) {
+      if (state.won_board[player].some(([r, c]) => r === boardRow && c === boardCol)) {
+        return player;
+      }
+    }
+    return null;
+  }
+
   // Reactive declaration to subscribe to the gameState store
   $: state = $gameState;
 </script>
@@ -69,13 +78,19 @@
   .highlight {
     background-color: yellow;
   }
+  .x-winner {
+    background-color: rgba(30, 144, 255, 0.5); /* light blue */
+  }
+  .o-winner {
+    background-color: rgba(255, 69, 0, 0.5); /* light red */
+  }
 </style>
 
 <div class="ultimate-board">
   {#each Array(rows) as _, boardRow}
     {#each Array(cols) as _, boardCol}
       <div
-        class="mini-board {isNextBoard(boardRow, boardCol, state.next_board) ? 'highlight' : ''}"
+        class="mini-board {isNextBoard(boardRow, boardCol, state.next_board) ? 'highlight' : ''} {getMiniBoardWinner(boardRow, boardCol, state) === 'X' ? 'x-winner' : getMiniBoardWinner(boardRow, boardCol, state) === 'O' ? 'o-winner' : ''}"
         on:click={() => handleBoardClick(boardRow, boardCol)}
         role="button"
         tabindex="0"
