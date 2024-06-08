@@ -5,12 +5,15 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 import json
 from typing import List, Dict, Any
+import traceback
 
 # Assuming GameController, GameChecker9D, Board_9D are defined appropriately
 from core.ai_player import RandomAIPlayer
+from core.alpha_zero_player import AlphaZeroAIPlayer
 from core.game_controller import GameController
 from core.board_9D import Board_9D
 from core.game_checker_9d import GameChecker9D
+from core.min_max_player import MinimaxAIPlayer
 from core.rule import StandardUltimateTicTacToeRule
 
 app = FastAPI()
@@ -33,13 +36,15 @@ class Move(BaseModel):
     board_position: List[int]
     cell_position: List[int]
 
+model_path = "ml/GoodUltimate2019-03-03 21_06_38+MCTS600+cpuct4.h5"
+
 @app.get("/start_game/")
 async def start_game(ai: bool = False):
     game_id = str(len(games) + 1)
     board = Board_9D()
     game_checker = GameChecker9D()
     rule = StandardUltimateTicTacToeRule()
-    ai_player = RandomAIPlayer("AI", 'O') if ai else None
+    ai_player = MinimaxAIPlayer("AI", 'O', max_depth=4) if ai else None
     game_controller = GameController(game_id, board, game_checker, rule, ai_player)
     games[game_id] = game_controller
     return {"type": "game_state", "state": game_controller.get_state()}
@@ -97,17 +102,19 @@ async def websocket_endpoint(websocket: WebSocket, game_id: str):
                     for client in clients[move.game_id]:
                         await client.send_text(response)
 
-                    await asyncio.sleep(3)
+                    await asyncio.sleep(2)
 
                     # AI move (if applicable)
-                    print(f"Ai player: {game.ai_player}")
                     if game.ai_player and game.current_player.symbol == game.ai_player.symbol:
                         game.play_ai_move()
                         state = game.get_state()
+                        print(f"Type of next_board: {type(state.next_board)}")
                         response = json.dumps({"type": "game_state", "state": state.to_dict()})
                         for client in clients[move.game_id]:
                             await client.send_text(response)
                 except Exception as e:
+                    tb_str = traceback.format_exception(e)
+                    print(tb_str)
                     await websocket.send_text(json.dumps({"type": "error", "message": str(e)}))
     except WebSocketDisconnect:
         clients[game_id].remove(websocket)

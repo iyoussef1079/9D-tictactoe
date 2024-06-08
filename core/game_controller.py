@@ -1,16 +1,13 @@
 from dataclasses import asdict, dataclass
 from typing import Any, List, Set, Tuple
 
-from core.ai_player import AIPlayer
+from core.ai_player import AIPlayer, Player
 from core.board_9D import Board_9D
 from core.game_checker_9d import GameChecker9D, GameChecker
 from core.rule import StandardUltimateTicTacToeRule, MoveRuleStrategy
 from core.exceptions import AlreadyWinBoardException, MoveRuleException
 
-class Player:
-    def __init__(self, name, symbol):
-        self.name = name
-        self.symbol = symbol  # 'X' or 'O'
+
 
 @dataclass
 class GameState:
@@ -45,7 +42,7 @@ class GameController:
         self.game_checker = game_checker_9d_instance
         self.players = {
             'X': Player(name="1", symbol='X'),
-            'O': Player(name="2", symbol='O')
+            'O': ai_player if ai_player is not None else Player(name="2", symbol='O')
         }
         self.current_player = self.players['X']
         self.rule = rule
@@ -57,7 +54,7 @@ class GameController:
         self.current_player = self.players['O'] if self.current_player == self.players['X'] else self.players['X']
 
     def play_move(self, board_position, cell_position):
-        if self.next_board and board_position != self.next_board:
+        if self.next_board and list(board_position) != list(self.next_board):
             print("board_position", board_position)
             print("next_board", self.next_board)
             raise MoveRuleException()
@@ -73,16 +70,12 @@ class GameController:
         self.next_board = self.rule.next_board(board_position, cell_position, self.board)
         self.switch_player()
 
-        if self.current_player == self.ai_player:
-            self.play_ai_move()
-
         return self.check_game_over()
 
     def play_ai_move(self):
         ai_move = self.ai_player.get_move(self)
         if ai_move:
             board_position, cell_position = ai_move
-            print(f"AI Player: {self.current_player.name} ({self.current_player.symbol}) plays at board: {board_position} cell: {cell_position}")
             self.play_move(board_position, cell_position)
 
     def check_game_over(self) -> str:

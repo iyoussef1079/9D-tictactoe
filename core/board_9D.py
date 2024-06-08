@@ -45,3 +45,7 @@ class Board_9D:
         """Get a list of available moves on the 9D board."""
         return [(r, c, cell_pos) for r, row in enumerate(self.board) for c, board in enumerate(row)
                 for cell_pos in board.get_available_moves()]
+    
+    def is_full(self):
+        """Check if the 9D board is full."""
+        return all(board.is_full() for row in self.board for board in row)
